@@ -35,6 +35,7 @@ from . import notifications
 from .models import Notification
 from .notifications.base import get_available_types
 from .providers import cache_client, esi_openapi
+from .app_settings import CT_PINGER_FUEL_THRESHOLD
 
 TZ_STRING = "%Y-%m-%dT%H:%M:%SZ"
 
@@ -42,7 +43,7 @@ CACHE_TIME_SECONDS = 10 * 60
 
 TASK_PRIO = 3
 
-LOOK_BACK_HOURS = 6 #* 15
+LOOK_BACK_HOURS = 6  # * 15
 
 
 logger = logging.getLogger(__name__)
@@ -234,7 +235,7 @@ def corporation_fuel_check(self, corporation_id):
 
         daysLeft = (struct.fuel_expires - datetime.datetime.now(tz.utc)).days
 
-        if daysLeft < 15:
+        if daysLeft < CT_PINGER_FUEL_THRESHOLD:
             if 0 <= daysLeft < 2:
                 fuel_ping_builder(struct, daysLeft, "Critical Fuel! :ambulance:")
             elif 2 <= daysLeft < 3:
@@ -712,7 +713,6 @@ def corporation_notification_update(self, corporation_id):
         # cant requeue ourself in a queueonce enviro
         queue_corporation_notification_update.apply_async(
             args=[corporation_id, delay], priority=(TASK_PRIO + 1), countdown=1)
-
 
 
 @shared_task(bind=True, base=QueueOnce)
