@@ -237,13 +237,25 @@ def corporation_fuel_check(self, corporation_id):
 
         if daysLeft < CT_PINGER_FUEL_THRESHOLD:
             if 0 <= daysLeft < 2:
-                fuel_ping_builder(struct, daysLeft, "Critical Fuel! :ambulance:")
+                fuel_ping_builder(
+                    struct, daysLeft, f"Critical Fuel{'!' * (2 - daysLeft)} :ambulance:"
+                )
             elif 2 <= daysLeft < 3:
-                fuel_ping_builder(struct, daysLeft, "Critical Fuel! :ambulance: :eyes:")
+                fuel_ping_builder(
+                    struct,
+                    daysLeft,
+                    f"Critical Fuel{'!' * (3 - daysLeft)} :ambulance: :eyes:",
+                )
             elif 3 <= daysLeft < 8:
-                fuel_ping_builder(struct, daysLeft, "Low Fuel")
+                fuel_ping_builder(
+                    struct, daysLeft, f"Very Low Fuel{'!' * (8 - daysLeft)} :eyes:"
+                )
             elif 8 <= daysLeft:
-                fuel_ping_builder(struct, daysLeft, "Low Fuel")
+                fuel_ping_builder(
+                    struct,
+                    daysLeft,
+                    f"Low Fuel{'!' * (CT_PINGER_FUEL_THRESHOLD - daysLeft)} :eyes:",
+                )
         else:
             old = FuelPingRecord.objects.filter(
                 last_ping_lo_level__isnull=True, structure=struct)
