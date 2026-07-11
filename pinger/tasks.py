@@ -197,39 +197,47 @@ def queue_corporation_notification_update(corporation_id, wait_time):
         args=[corporation_id], priority=(TASK_PRIO + 1), countdown=wait_time)
 
 
-def fuel_ping_builder(structure, days, message):
+def fuel_ping_builder(structure: Structure, days, message):
+    logger.info(f"PINGER: FUEL Fuel Ping Builder for {structure.name} {days} days left")
     pingObj = FuelPingRecord.objects.filter(
-        last_message=message, last_ping_lo_level__isnull=True, structure=structure, date_empty=structure.fuel_expires).exists()
+        last_message=message,
+        last_ping_lo_level__isnull=True,
+        structure=structure,
+        date_empty=structure.fuel_expires,
+    ).exists()
     if not pingObj:
-        # logger.info("new ping: %s %s"% (_structure,_pingText))
+        logger.info("new ping: %s %s" % (structure.name, message))
 
         n = FuelPingRecord(
             structure=structure,
             last_ping_time=days,
             last_message=message,
-            date_empty=structure.fuel_expires)
+            date_empty=structure.fuel_expires,
+        )
         n.save()
         old = FuelPingRecord.objects.filter(
-            last_ping_lo_level__isnull=True, structure=structure).exclude(pk=n.pk)
+            last_ping_lo_level__isnull=True, structure=structure
+        ).exclude(pk=n.pk)
         if old.exists():
             # logger.debug("new ping %s" % str(structure.name))
             old.delete()
         n.ping_task_ob(message)
         return True
     else:
-        # logger.info("already pinged: %s %s"% (_structure,_pingText))
+        logger.info("already pinged: %s %s" % (structure.name, message))
         return False
 
 
 @shared_task(bind=True, base=QueueOnce, max_retries=None)
 def corporation_fuel_check(self, corporation_id):
-    logger.info(
-        f"PINGER: FUEL Sending Starting Fuel Checks for {corporation_id}")
+    logger.info(f"PINGER: FUEL Sending Starting Fuel Checks for {corporation_id}")
     fuel_structures = Structure.objects.filter(
-        corporation__corporation__corporation_id=corporation_id)
+        corporation__corporation__corporation_id=corporation_id
+    )
 
     for struct in fuel_structures:
         daysLeft = 0
+        logger.info(f"PINGER: FUEL Checking {struct.name} {struct.fuel_expires}")
         if not struct.fuel_expires:
             continue  # use the eve notifications
 
@@ -258,7 +266,8 @@ def corporation_fuel_check(self, corporation_id):
                 )
         else:
             old = FuelPingRecord.objects.filter(
-                last_ping_lo_level__isnull=True, structure=struct)
+                last_ping_lo_level__isnull=True, structure=struct
+            )
             if old.exists():
                 old.delete()
 
