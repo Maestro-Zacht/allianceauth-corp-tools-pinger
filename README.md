@@ -69,6 +69,34 @@ configurable @ settings
 1. Configure Pinger at `/admin/pinger/pingerconfig/1/change/`
 1. Verify pinger is setup with `python manage.py pinger_stats`
 
+# Fuel Pings
+
+Fuel pings are driven by **Fuel Ping Configs** in admin (`/admin/pinger/fuelpingconfig/`). A config is a named policy: where it applies, which webhooks it pings, and a list of thresholds saying what to say at how many days of fuel left.
+
+## Where a config applies
+
+Each config has three location filters — regions, constellations and systems. A structure matches if its system is in `systems`, **or** its constellation is in `constellations`, **or** its region is in `regions`. A config with all three filters empty will match structures anywhere.
+
+When there are multiple config matching a structure, a specificity logic applies: if a config matches a structure at system level, another config that matches at region level won't be considered. If there are multiple configs matching at the same level, all of them apply.
+
+With the `always_ping` field, you can flag a config that will be considered even if there is a more specific one. This is useful for  cases when there are some system or constellation level configs in place but you want the region config to still be considered.
+
+For a ping to be sent to a webhook, this needs to be added in the list of webhook of a config. Note that each webhook still applies its own corporation / alliance / region filters on top as well as the `no_at_pings` field which strips all the mentions from the message.
+
+A config left with no webhooks is discarded before being considered, as it could prevent other configs from being applied.
+
+## Thresholds
+
+Every config has a list of thresholds and each threshold is characterized by a `days` and a number of other attributes. The `days` field determines the range of days: a certain threshold applies starting from its `days` field until the next threshold `days` excluded.
+
+If a threshold for a certain config has triggered for a structure, the following attributes will determine if the ping is to be sent and what's written in it:
+
+- `repeat_days` specifies the frequency of the pings. If left empty, a ping is sent only when the structure first enters the threshold, a value of 1 means one ping per day as long as the structure's fuel left stays in the threshold's range, and so on.
+- `message` is a custom message that is sent along with the embed. It supports `{days}`, `{structure}` and `{system}` for formatting.
+- `color` is the color of the embed. Google "discord color picker" and paste the **decimal** value in this field.
+- `ping_groups` are the list of groups that will be mentioned in the message. This field is only shown when the [discord service](https://allianceauth.readthedocs.io/en/latest/features/services/discord.html) is installed.
+- `ping_here` and `ping_everyone` will add the corresponding pings to the message.
+
 # Setup
 
 add periodic task, default timing below.
