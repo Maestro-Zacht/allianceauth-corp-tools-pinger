@@ -72,11 +72,13 @@ def build_fuel_embed(
         "color": color,
         "title": _title,
         "footer": footer,
-        "description": message,
         "fields": [
             {"name": "System", "value": _system_name, "inline": False},
         ],
     }
+
+    if message:
+        custom_data["description"] = message
 
     if structure.fuel_expires:
         custom_data["fields"].append(

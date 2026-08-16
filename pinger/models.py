@@ -302,7 +302,9 @@ class FuelThreshold(models.Model):
     )
 
     message = models.TextField(
-        help_text="Ping text. Supports {days}, {structure} and {system} for formatting."
+        blank=True,
+        default="",
+        help_text="Ping text. Supports {days}, {structure} and {system} for formatting.",
     )
 
     color = models.PositiveIntegerField(

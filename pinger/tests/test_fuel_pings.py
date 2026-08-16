@@ -206,7 +206,7 @@ class FuelPingTestCase(CorptoolsTestCase):
 
     def _messages(self, struct, hook=None):
         return sorted(
-            json.loads(p.body)["description"] for p in self._pings(struct, hook)
+            json.loads(p.body).get("description", "") for p in self._pings(struct, hook)
         )
 
     def _records(self, struct):
@@ -567,6 +567,16 @@ class FuelPingLadderTests(FuelPingTestCase):
 
         self.assertEqual(self._messages(struct), ["Unknown"])
 
+    def test_a_threshold_without_a_message_pings_without_a_description(self):
+        self._config("Catch All", [{"days": 7}])
+        struct = self._structure(days=5)
+
+        self._run()
+
+        body = json.loads(self._pings(struct).get().body)
+        self.assertNotIn("description", body)
+        self.assertEqual(self._records(struct).get().last_message, "")
+
     def test_nothing_matching_pings_nothing_and_sweeps_every_record(self):
         catch_all = self._config("Catch All", [(7, "CATCHALL")])
         struct = self._structure(days=5)
@@ -829,6 +839,12 @@ class FuelEmbedTests(FuelPingTestCase):
             },
         )
 
+    def test_a_blank_message_leaves_the_description_out(self):
+        """Discord rejects a null description, and an empty one just wastes a line."""
+        embed = build_fuel_embed(self._structure(days=5), "", 1, 5)
+
+        self.assertNotIn("description", embed)
+
     def test_every_online_service_is_listed(self):
         struct = self._structure(days=5)
         for name in ("Clone Bay", "Market Hub"):
@@ -1018,6 +1034,9 @@ class FuelThresholdValidationTests(FuelPingTestCase):
         self.assertIn(
             "Malformed substitution", caught.exception.message_dict["message"][0]
         )
+
+    def test_a_blank_message_validates(self):
+        self._threshold(message="").full_clean()
 
     def test_every_supported_substitution_validates(self):
         self._threshold(message="{structure} in {system} has {days} days").full_clean()

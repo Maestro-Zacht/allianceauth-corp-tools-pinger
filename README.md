@@ -92,7 +92,7 @@ Every config has a list of thresholds and each threshold is characterized by a `
 If a threshold for a certain config has triggered for a structure, the following attributes will determine if the ping is to be sent and what's written in it:
 
 - `repeat_days` specifies the frequency of the pings. If left empty, a ping is sent only when the structure first enters the threshold, a value of 1 means one ping per day as long as the structure's fuel left stays in the threshold's range, and so on.
-- `message` is a custom message that is sent along with the embed. It supports `{days}`, `{structure}` and `{system}` for formatting.
+- `message` is an optional custom message that is sent along with the embed. It supports `{days}`, `{structure}` and `{system}` for formatting.
 - `color` is the color of the embed. Google "discord color picker" and paste the **decimal** value in this field.
 - `ping_groups` are the list of groups that will be mentioned in the message. This field is only shown when the [discord service](https://allianceauth.readthedocs.io/en/latest/features/services/discord.html) is installed.
 - `ping_here` and `ping_everyone` will add the corresponding pings to the message.
