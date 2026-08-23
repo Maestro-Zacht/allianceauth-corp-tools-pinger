@@ -1,9 +1,11 @@
 import logging
 from typing import TYPE_CHECKING
 
-from allianceauth.eveonline.evelinks import dotlan, eveimageserver
-from django.apps import apps
 from requests.exceptions import HTTPError
+
+from django.apps import apps
+
+from allianceauth.eveonline.evelinks import dotlan, eveimageserver
 
 if TYPE_CHECKING:
     from django.contrib.auth.models import Group

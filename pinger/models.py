@@ -5,15 +5,17 @@ from datetime import timedelta
 from string import Formatter
 from typing import TYPE_CHECKING, ClassVar
 
-from allianceauth.eveonline.models import EveAllianceInfo, EveCorporationInfo
-from allianceauth.groupmanagement.models import Group
 from corptools.models import Structure
 from corptools.models.audits import CharacterAudit
+from eve_sde.models import Constellation, Region, SolarSystem
+
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
 from django.utils import timezone
-from eve_sde.models import Constellation, Region, SolarSystem
+
+from allianceauth.eveonline.models import EveAllianceInfo, EveCorporationInfo
+from allianceauth.groupmanagement.models import Group
 
 from .utils.discord import build_fuel_embed, role_id_for_group
 
@@ -27,31 +29,40 @@ MESSAGE_FORMAT_KEYS = frozenset(["days", "structure", "system"])
 
 class FuelPingConfigQuerySet(models.QuerySet["FuelPingConfig"]):
     def usable(self):
-        """Configs that name at least one webhook.
-
-        A config without webhooks can only be built outside admin,
-        and it would still raise the specificity bar.
-        """
+        """Configs that name at least one webhook."""
         return self.filter(webhooks__isnull=False).distinct()
 
-    def matching(self, structure) -> list["FuelPingConfig"]:
-        """The configs that should ping for `structure`.
+    def matching(
+        self, structure: Structure, days_left: int
+    ) -> list[tuple["FuelPingConfig", "FuelThreshold"]]:
+        """The configs that should ping for `structure`, each with its triggered threshold.
 
-        The specificity level is the tightest level *any* config matches at, flagged
-        configs included; every config matching at that level fires, plus every
-        `always_ping` config that matches at all.
+        A config raises the specificity bar only when it would actually ping, or when it
+        is flagged `blocks_broader`. Every config that pings at the resulting bar fires,
+        plus every `always_ping` config that pings at all.
         """
-        hits: list[tuple[FuelPingConfig, int]] = list(
-            filter(
-                lambda x: x[1] is not None, ((c, c.level_for(structure)) for c in self)
-            )
-        )
+        hits = [
+            (config, level, config.threshold_for(days_left))
+            for config in self
+            if (level := config.level_for(structure)) is not None
+        ]
 
-        if not hits:
+        bar = max(
+            (
+                level
+                for config, level, threshold in hits
+                if threshold is not None or config.blocks_broader
+            ),
+            default=None,
+        )
+        if bar is None:
             return []
 
-        tightest = max(hits, key=lambda x: x[1])[1]
-        return [c for c, level in hits if level == tightest or c.always_ping]
+        return [
+            (config, threshold)
+            for config, level, threshold in hits
+            if threshold is not None and (level == bar or config.always_ping)
+        ]
 
 
 class FuelPingConfigManager(models.Manager["FuelPingConfig"]):
@@ -61,8 +72,10 @@ class FuelPingConfigManager(models.Manager["FuelPingConfig"]):
     def usable(self) -> FuelPingConfigQuerySet:
         return self.get_queryset().usable()
 
-    def matching(self, structure) -> list["FuelPingConfig"]:
-        return self.get_queryset().matching(structure)
+    def matching(
+        self, structure, days_left: int
+    ) -> list[tuple["FuelPingConfig", "FuelThreshold"]]:
+        return self.get_queryset().matching(structure, days_left)
 
 
 def _webhook_passes_filters(hook, corp_id=None, alli_id=None, region_id=None):
@@ -198,6 +211,12 @@ class FuelPingConfig(models.Model):
         default=False,
         help_text="Fire whenever this config matches a structure, even if a more specific config also "
         "matches.",
+    )
+
+    blocks_broader = models.BooleanField(
+        default=False,
+        help_text="Suppress more general configs whenever this config matches a structure, "
+        "even at fuel levels where this config's own thresholds do not ping.",
     )
 
     objects: ClassVar[FuelPingConfigManager] = FuelPingConfigManager()

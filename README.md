@@ -77,9 +77,9 @@ Fuel pings are driven by **Fuel Ping Configs** in admin (`/admin/pinger/fuelping
 
 Each config has three location filters — regions, constellations and systems. A structure matches if its system is in `systems`, **or** its constellation is in `constellations`, **or** its region is in `regions`. A config with all three filters empty will match structures anywhere.
 
-When there are multiple config matching a structure, a specificity logic applies: if a config matches a structure at system level, another config that matches at region level won't be considered. If there are multiple configs matching at the same level, all of them apply.
+When there are multiple configs matching a structure, a specificity logic applies: if a config matches a structure at system level AND a [threshold](#thresholds) is active, another config that matches at region level won't be considered. If there are multiple configs matching at the same level, all of them which have a threshold active apply. If the `blocks_broader` field is set to `True`, that config will prevent more general configs from being considered even if this config does not have any firing thresholds.
 
-With the `always_ping` field, you can flag a config that will be considered even if there is a more specific one. This is useful for  cases when there are some system or constellation level configs in place but you want the region config to still be considered.
+With the `always_ping` field, you can flag a config that will be considered even if there is a more specific one. This is useful for cases when there are some system or constellation level configs in place but you want the region config to still be considered. This also works when the more specific config has `block_broader=True`.
 
 For a ping to be sent to a webhook, this needs to be added in the list of webhook of a config. Note that each webhook still applies its own corporation / alliance / region filters on top as well as the `no_at_pings` field which strips all the mentions from the message.
 

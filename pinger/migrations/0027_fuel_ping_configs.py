@@ -81,6 +81,13 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 (
+                    "blocks_broader",
+                    models.BooleanField(
+                        default=False,
+                        help_text="Suppress more general configs whenever this config matches a structure, even at fuel levels where this config's own thresholds do not ping.",
+                    ),
+                ),
+                (
                     "constellations",
                     models.ManyToManyField(
                         blank=True,

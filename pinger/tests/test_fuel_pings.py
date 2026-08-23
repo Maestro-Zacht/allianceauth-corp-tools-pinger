@@ -5,10 +5,11 @@ from datetime import timedelta
 from types import ModuleType, SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-from allianceauth.eveonline.evelinks import dotlan, eveimageserver
-from allianceauth.groupmanagement.models import Group
 from corptools.models import CorporationAudit, Structure, StructureService
 from corptools.tests import CorptoolsTestCase
+from eve_sde.models import Constellation, Region, SolarSystem
+from requests.exceptions import HTTPError
+
 from django.contrib import admin
 from django.contrib.auth.models import User
 from django.contrib.staticfiles import finders
@@ -17,21 +18,16 @@ from django.db import IntegrityError, transaction
 from django.forms.models import inlineformset_factory
 from django.test import RequestFactory, TestCase
 from django.utils import timezone
-from eve_sde.models import Constellation, Region, SolarSystem
-from requests.exceptions import HTTPError
+
+from allianceauth.eveonline.evelinks import dotlan, eveimageserver
+from allianceauth.groupmanagement.models import Group
 
 from pinger import tasks
 from pinger.admin import (
-    FuelThresholdForm,
-    FuelThresholdFormSet,
-    FuelThresholdInline,
+    FuelThresholdForm, FuelThresholdFormSet, FuelThresholdInline,
 )
 from pinger.models import (
-    DiscordWebhook,
-    FuelPingConfig,
-    FuelPingRecord,
-    FuelThreshold,
-    Ping,
+    DiscordWebhook, FuelPingConfig, FuelPingRecord, FuelThreshold, Ping,
 )
 from pinger.tasks import corporation_fuel_check
 from pinger.utils.discord import build_fuel_embed, role_id_for_group
@@ -176,12 +172,15 @@ class FuelPingTestCase(CorptoolsTestCase):
         systems=(),
         webhooks=None,
         always_ping=False,
+        blocks_broader=False,
     ):
         """`ladder` is a list of (days, message) or of kwargs dicts.
 
         `webhooks` defaults to the shared hook; pass `[]` for a config that names none.
         """
-        cfg = FuelPingConfig.objects.create(name=name, always_ping=always_ping)
+        cfg = FuelPingConfig.objects.create(
+            name=name, always_ping=always_ping, blocks_broader=blocks_broader
+        )
         cfg.regions.set(regions)
         cfg.constellations.set(constellations)
         cfg.systems.set(systems)
@@ -467,6 +466,76 @@ class FuelPingLadderTests(FuelPingTestCase):
 
         self.assertEqual(self._messages(struct), ["SYSTEM"])
 
+    def test_a_config_below_its_ladder_does_not_suppress(self):
+        """A tighter config that would not ping leaves the broader one free to fire."""
+        self._config("Region", [(7, "REGION")], regions=[self.region1])
+        self._config("System", [(1, "SYSTEM")], systems=[self.system1])
+        struct = self._structure(days=5)
+
+        self._run()
+
+        self.assertEqual(self._messages(struct), ["REGION"])
+
+    def test_blocks_broader_suppresses_without_pinging(self):
+        self._config("Region", [(7, "REGION")], regions=[self.region1])
+        self._config(
+            "System", [(1, "SYSTEM")], systems=[self.system1], blocks_broader=True
+        )
+        struct = self._structure(days=5)
+
+        self._run()
+
+        self.assertEqual(self._messages(struct), [])
+
+    def test_blocks_broader_changes_nothing_when_the_config_pings(self):
+        self._config("Region", [(7, "REGION")], regions=[self.region1])
+        self._config(
+            "System", [(7, "SYSTEM")], systems=[self.system1], blocks_broader=True
+        )
+        struct = self._structure(days=5)
+
+        self._run()
+
+        self.assertEqual(self._messages(struct), ["SYSTEM"])
+
+    def test_always_ping_survives_a_blocks_broader_blackout(self):
+        self._config("Catch All", [(7, "CATCHALL")], always_ping=True)
+        self._config(
+            "System", [(1, "SYSTEM")], systems=[self.system1], blocks_broader=True
+        )
+        struct = self._structure(days=5)
+
+        self._run()
+
+        self.assertEqual(self._messages(struct), ["CATCHALL"])
+
+    def test_blocks_broader_only_bites_where_it_matches(self):
+        self._config("Region", [(7, "REGION")], regions=[self.region1])
+        self._config(
+            "Other Region",
+            [(1, "OTHER")],
+            regions=[self.region2],
+            blocks_broader=True,
+        )
+        struct = self._structure(days=5)  # system1, region1
+
+        self._run()
+
+        self.assertEqual(self._messages(struct), ["REGION"])
+
+    def test_the_bar_is_computed_per_structure(self):
+        self._config("Region", [(7, "REGION")], regions=[self.region1])
+        self._config(
+            "System", [(1, "SYSTEM")], systems=[self.system1], blocks_broader=True
+        )
+        blocked = self._structure(days=5)
+        other = self._structure(days=5, system=self.system1b)
+
+        self._run()
+
+        self.assertEqual(self._messages(blocked), [])
+        self.assertEqual(self._messages(other), ["REGION"])
+
     def test_all_flagged_match_set_all_fire(self):
         self._config("Catch All", [(7, "CATCHALL")], always_ping=True)
         self._config(
@@ -709,6 +778,27 @@ class FuelPingRecordTests(FuelPingTestCase):
 
         self.assertFalse(self._records(struct).filter(config=short).exists())
         self.assertTrue(self._records(struct).filter(config=tall).exists())
+
+    def test_a_config_suppressed_by_blocks_broader_loses_its_record(self):
+        region = self._config("Region", [(7, "REGION")], regions=[self.region1])
+        blocker = self._config(
+            "System", [(1, "SYSTEM")], systems=[self.system1], blocks_broader=True
+        )
+        struct = self._structure(days=5)
+
+        self._run()
+        self.assertEqual(self._records(struct).count(), 0)
+
+        blocker.systems.set([self.system2])  # no longer matches, region is free again
+        self._run()
+        self.assertEqual(
+            list(self._records(struct).values_list("config_id", flat=True)), [region.id]
+        )
+
+        blocker.systems.set([self.system1])
+        self._run()
+
+        self.assertFalse(self._records(struct).exists())
 
     def test_a_config_that_stops_matching_is_swept(self):
         scoped = self._config("Scoped", [(7, "SCOPED")], systems=[self.system1])

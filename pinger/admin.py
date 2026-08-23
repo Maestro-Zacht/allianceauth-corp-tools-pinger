@@ -2,6 +2,7 @@ import json
 import logging
 
 import requests
+
 from django import forms
 from django.contrib import admin, messages
 from django.utils.html import format_html, format_html_join
@@ -217,7 +218,14 @@ class FuelPingConfigAdmin(admin.ModelAdmin):
     autocomplete_fields = ["regions", "constellations", "systems"]
     filter_horizontal = ["webhooks"]
     inlines = [FuelThresholdInline]
-    list_display = ["name", "always_ping", "_ladder", "_locations", "_webhooks"]
+    list_display = [
+        "name",
+        "always_ping",
+        "blocks_broader",
+        "_ladder",
+        "_locations",
+        "_webhooks",
+    ]
 
     @admin.display(description="Thresholds (days)")
     def _ladder(self, obj):

@@ -8,32 +8,27 @@ from datetime import timezone as tz
 from http.cookiejar import http2time
 
 import requests
-from allianceauth.eveonline.evelinks import eveimageserver
-from allianceauth.services.tasks import QueueOnce
 from celery import shared_task
 from corptools.models import (
-    CharacterAudit,
-    CorpAsset,
-    CorporationAudit,
-    Structure,
+    CharacterAudit, CorpAsset, CorporationAudit, Structure,
 )
 from corptools.task_helpers import sanitize_notification_type
 from corptools.tasks.utils import esi_error_retry
+from oauthlib.oauth2.rfc6749.errors import InvalidGrantError
+
 from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Max, Q, Sum
 from django.utils import timezone
+
+from allianceauth.eveonline.evelinks import eveimageserver
+from allianceauth.services.tasks import QueueOnce
 from esi.exceptions import HTTPNotModified
 from esi.models import Token
-from oauthlib.oauth2.rfc6749.errors import InvalidGrantError
 
 from pinger.app_settings import CT_PINGER_VALID_STATES
 from pinger.models import (
-    DiscordWebhook,
-    FuelPingConfig,
-    FuelPingRecord,
-    Ping,
-    PingerConfig,
+    DiscordWebhook, FuelPingConfig, FuelPingRecord, Ping, PingerConfig,
     _webhook_passes_filters,
 )
 
@@ -232,17 +227,13 @@ def corporation_fuel_check(self, corporation_id):
         if days_left < 0:
             continue  # goes low power
 
-        matched = configs.matching(struct)
+        matched = configs.matching(struct, days_left)
         records: dict[int, FuelPingRecord] = {
             r.config_id: r for r in FuelPingRecord.objects.filter(structure=struct)
         }
         keep = set()
 
-        for cfg in matched:
-            t_now = cfg.threshold_for(days_left)
-            if t_now is None:
-                continue  # above the highest threshold
-
+        for cfg, t_now in matched:
             keep.add(cfg.pk)
 
             rec = records.get(cfg.pk)

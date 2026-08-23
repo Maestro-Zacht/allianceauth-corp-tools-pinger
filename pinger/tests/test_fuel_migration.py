@@ -150,6 +150,7 @@ class SeedCatchAllMigrationTests(TransactionTestCase):
         config = new_apps.get_model("pinger", "FuelPingConfig").objects.get()
         self.assertEqual(config.name, "Default Fuel Pings")
         self.assertFalse(config.always_ping)
+        self.assertFalse(config.blocks_broader)
         self.assertEqual(
             sorted(config.thresholds.values_list("days", "message", "ping_here")),
             sorted(MIGRATION.CATCH_ALL_LADDER),
