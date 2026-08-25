@@ -216,7 +216,7 @@ class FuelPingConfigAdmin(admin.ModelAdmin):
     # endpoints only pass their view-permission check for superusers. The location
     # fields are therefore superuser-editable only.
     autocomplete_fields = ["regions", "constellations", "systems"]
-    filter_horizontal = ["webhooks"]
+    filter_horizontal = ["webhooks", "structures"]
     inlines = [FuelThresholdInline]
     list_display = [
         "name",
@@ -226,6 +226,17 @@ class FuelPingConfigAdmin(admin.ModelAdmin):
         "_locations",
         "_webhooks",
     ]
+
+    def formfield_for_manytomany(self, db_field, request, **kwargs):
+        formfield = super().formfield_for_manytomany(db_field, request, **kwargs)
+        if db_field.name == "structures":
+            formfield.queryset = formfield.queryset.select_related(
+                "system_name"
+            ).order_by("name")
+            formfield.label_from_instance = lambda obj: (
+                f"{obj.name} — {obj.system_name or obj.system_id}"
+            )
+        return formfield
 
     @admin.display(description="Thresholds (days)")
     def _ladder(self, obj):
@@ -237,6 +248,7 @@ class FuelPingConfigAdmin(admin.ModelAdmin):
             "regions": obj.regions.count(),
             "constellations": obj.constellations.count(),
             "systems": obj.systems.count(),
+            "structures": obj.structures.count(),
         }
         if not any(counts.values()):
             return "Everywhere"

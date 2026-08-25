@@ -75,9 +75,9 @@ Fuel pings are driven by **Fuel Ping Configs** in admin (`/admin/pinger/fuelping
 
 ## Where a config applies
 
-Each config has three location filters — regions, constellations and systems. A structure matches if its system is in `systems`, **or** its constellation is in `constellations`, **or** its region is in `regions`. A config with all three filters empty will match structures anywhere.
+Each config has four location filters — regions, constellations, systems and structures. A structure matches if it is itself in `structures`, **or** its system is in `systems`, **or** its constellation is in `constellations`, **or** its region is in `regions`. A config with all four filters empty will match structures anywhere. Note: since structures can be deleted, a config with only structures can become a general config if all structures are removed.
 
-When there are multiple configs matching a structure, a specificity logic applies: if a config matches a structure at system level AND a [threshold](#thresholds) is active, another config that matches at region level won't be considered. If there are multiple configs matching at the same level, all of them which have a threshold active apply. If the `blocks_broader` field is set to `True`, that config will prevent more general configs from being considered even if this config does not have any firing thresholds.
+When there are multiple configs matching a structure, a specificity logic applies: structures is the most specific level, then systems, then constellations, then regions. If a config matches a structure at system level AND a [threshold](#thresholds) is active, another config that matches at region level won't be considered. If there are multiple configs matching at the same level, all of those which have a threshold active apply. If the `blocks_broader` field is set to `True`, that config will prevent more general configs from being considered even if this config does not have any firing thresholds.
 
 With the `always_ping` field, you can flag a config that will be considered even if there is a more specific one. This is useful for cases when there are some system or constellation level configs in place but you want the region config to still be considered. This also works when the more specific config has `block_broader=True`.
 

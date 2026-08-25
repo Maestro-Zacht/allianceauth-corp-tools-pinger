@@ -170,6 +170,7 @@ class FuelPingTestCase(CorptoolsTestCase):
         regions=(),
         constellations=(),
         systems=(),
+        structures=(),
         webhooks=None,
         always_ping=False,
         blocks_broader=False,
@@ -184,6 +185,7 @@ class FuelPingTestCase(CorptoolsTestCase):
         cfg.regions.set(regions)
         cfg.constellations.set(constellations)
         cfg.systems.set(systems)
+        cfg.structures.set(structures)
         cfg.webhooks.set([self.hook] if webhooks is None else webhooks)
 
         for entry in ladder:
@@ -265,6 +267,36 @@ class FuelPingLadderTests(FuelPingTestCase):
         self._run()
 
         self.assertEqual(self._messages(struct), ["SYSTEM"])
+
+    def test_structure_config_suppresses_system_config(self):
+        struct = self._structure(days=5)
+        self._config("System", [(7, "SYSTEM")], systems=[self.system1])
+        self._config("Structure", [(7, "STRUCTURE")], structures=[struct])
+
+        self._run()
+
+        self.assertEqual(self._messages(struct), ["STRUCTURE"])
+
+    def test_structure_config_only_matches_the_named_structure(self):
+        named = self._structure(days=5)
+        other = self._structure(days=5)
+        self._config("System", [(7, "SYSTEM")], systems=[self.system1])
+        self._config("Structure", [(7, "STRUCTURE")], structures=[named])
+
+        self._run()
+
+        self.assertEqual(self._messages(named), ["STRUCTURE"])
+        self.assertEqual(self._messages(other), ["SYSTEM"])
+
+    def test_structures_only_config_is_not_a_catch_all(self):
+        named = self._structure(days=5)
+        other = self._structure(days=5)
+        self._config("Structure", [(7, "STRUCTURE")], structures=[named])
+
+        self._run()
+
+        self.assertEqual(self._messages(named), ["STRUCTURE"])
+        self.assertEqual(self._messages(other), [])
 
     def test_constellation_config_suppresses_region_config(self):
         self._config("Region", [(7, "REGION")], regions=[self.region1])
@@ -504,6 +536,21 @@ class FuelPingLadderTests(FuelPingTestCase):
             "System", [(1, "SYSTEM")], systems=[self.system1], blocks_broader=True
         )
         struct = self._structure(days=5)
+
+        self._run()
+
+        self.assertEqual(self._messages(struct), ["CATCHALL"])
+
+    def test_blocks_broader_at_structure_level(self):
+        struct = self._structure(days=5)
+        self._config("Catch All", [(7, "CATCHALL")], always_ping=True)
+        self._config("System", [(7, "SYSTEM")], systems=[self.system1])
+        self._config(
+            "Structure",
+            [(1, "STRUCTURE")],
+            structures=[struct],
+            blocks_broader=True,
+        )
 
         self._run()
 

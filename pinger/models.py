@@ -199,6 +199,10 @@ class FuelPingConfig(models.Model):
         SolarSystem, related_name="fuel_ping_configs", blank=True
     )
 
+    structures = models.ManyToManyField(
+        Structure, related_name="fuel_ping_configs", blank=True
+    )
+
     webhooks = models.ManyToManyField(
         DiscordWebhook,
         related_name="fuel_ping_configs",
@@ -231,22 +235,26 @@ class FuelPingConfig(models.Model):
         return self.name
 
     def level_for(self, structure: Structure):
-        """3 = system, 2 = constellation, 1 = region, 0 = catch-all, None = no match."""
-        region_ids = {r.id for r in self.regions.all()}
-        constellation_ids = {c.id for c in self.constellations.all()}
-        system_ids = {s.id for s in self.systems.all()}
+        """4 = structure, 3 = system, 2 = constellation, 1 = region, 0 = catch-all, None = no match."""
+        structure_ids = {s.id for s in self.structures.all()}
+        if structure.pk in structure_ids:
+            return 4
+
+        region_ids = {r.pk for r in self.regions.all()}
+        constellation_ids = {c.pk for c in self.constellations.all()}
+        system_ids = {s.pk for s in self.systems.all()}
         system = structure.system_name
         if system is not None:
-            if system.id in system_ids:
+            if system.pk in system_ids:
                 return 3
             constellation = system.constellation
             if constellation is not None:
-                if constellation.id in constellation_ids:
+                if constellation.pk in constellation_ids:
                     return 2
                 if constellation.region_id in region_ids:
                     return 1
 
-        if not (system_ids or constellation_ids or region_ids):
+        if not (structure_ids or system_ids or constellation_ids or region_ids):
             return 0  # no locations configured, this is a catch-all
 
         return None

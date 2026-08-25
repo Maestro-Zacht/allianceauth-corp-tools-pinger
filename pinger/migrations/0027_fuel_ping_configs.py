@@ -104,6 +104,14 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 (
+                    "structures",
+                    models.ManyToManyField(
+                        blank=True,
+                        related_name="fuel_ping_configs",
+                        to="corptools.structure",
+                    ),
+                ),
+                (
                     "systems",
                     models.ManyToManyField(
                         blank=True,

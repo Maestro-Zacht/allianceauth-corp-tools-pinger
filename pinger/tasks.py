@@ -209,6 +209,7 @@ def corporation_fuel_check(self, corporation_id):
         "regions",
         "constellations",
         "systems",
+        "structures",
         "thresholds",
         "thresholds__ping_groups",
         "webhooks",
