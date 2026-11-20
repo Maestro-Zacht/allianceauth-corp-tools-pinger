@@ -1089,14 +1089,15 @@ class SendPingPayloadTests(FuelPingTestCase):
 
     @patch("pinger.tasks.cache_client")
     @patch("pinger.tasks.requests.post")
-    def test_legacy_alerting_still_sends_at_here(self, mock_post, mock_cache):
+    def test_legacy_alerting_sends_at_everyone(self, mock_post, mock_cache):
         mock_post.return_value = MagicMock(status_code=204)
         mock_cache.sadd.return_value = 1
 
         tasks.send_ping(self._legacy_ping(alerting=True).id)
 
         body = self._post_body(mock_post)
-        self.assertEqual(body["content"], "@here")
+        self.assertEqual(body["content"], "@everyone")
+        self.assertEqual(body["allowed_mentions"], {"parse": ["everyone"], "roles": []})
         self.assertEqual(body["embeds"][0]["description"], "NOTIFICATION")
 
     @patch("pinger.tasks.cache_client")

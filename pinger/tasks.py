@@ -874,7 +874,7 @@ def send_ping(self, ping_id):
         if ping_ob.content:
             alert_text = ping_ob.content    # for fuel
         elif ping_ob.alerting:
-            alert_text = "@here"            # all other notifications
+            alert_text = "@everyone"        # all other notifications
 
     payload = {"embeds": [json.loads(ping_ob.body)]}
     if alert_text:
